@@ -17,3 +17,7 @@ Nerd Cache Clear simplifies WordPress cache management by allowing you to clear 
 ### Version 1.0
 - Added "Release" section to document changes.
 - Updated cache management info for clarity.
+
+## GitHub Commit
+
+Commit Message: "feat(admin): add individual cache buttons and filesystem logging for cleared files."
