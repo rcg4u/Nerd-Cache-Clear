@@ -14,6 +14,17 @@ Nerd Cache Clear simplifies WordPress cache management by allowing you to clear 
 
 ## Release
 
+### Version 1.2
+- Updated BunnyCDN functionality (still disabled).
+- Improved logging for cache clearing operations.
+- Minor UI adjustments in the admin page.
+- Updated plugin version to 1.2.
+
+### Version 1.1
+- Added BunnyCDN cache clearing functionality (disabled by default).
+- Enhanced admin page with additional cache clearing options.
+- Improved error handling and logging.
+
 ### Version 1.0
 - Added "Release" section to document changes.
 - Updated cache management info for clarity.
