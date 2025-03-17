@@ -23,7 +23,5 @@ Nerd Cache Clear simplifies WordPress cache management by allowing you to clear 
 - Recursive directory cleanup function: nerd_delete_directory_contents
 - Updated admin page callback with new buttons (nerd_cache_clear_page)
 - Updated admin menu to use the new callback (nerd_cache_clear_menu)
-
-## GitHub Commit
-
-Commit Message: "feat(admin): add individual cache buttons and filesystem logging for cleared files."
+- Added option to clear Essential Addons for Elementor cache.
+- Other minor improvements.

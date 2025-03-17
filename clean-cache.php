@@ -140,9 +140,25 @@ function nerd_delete_directory_contents($path) {
     }
 }
 
+function nerd_clear_ea_elementor_cache() {
+    nerd_log('Starting clear_ea_elementor_cache.');
+    if ( class_exists('Essential_Addons_Elementor\Classes\Cache') ) {
+        nerd_log('Essential Addons class found. Attempting to clear EA cache...');
+        if ( method_exists('Essential_Addons_Elementor\Classes\Cache', 'clear_all_caches') ) {
+            Essential_Addons_Elementor\Classes\Cache::clear_all_caches();
+            nerd_log('Essential Addons cache cleared via clear_all_caches().');
+        } else {
+            nerd_log('Essential Addons cache method not found.');
+        }
+    } else {
+        nerd_log('Essential Addons for Elementor plugin not detected. Skipping...');
+    }
+    nerd_run_cache_clear();
+}
+
 // Updated admin page callback that displays a button.
 function nerd_cache_clear_page() {
-    nerd_log('Admin settings page loaded. POST data: ' . print_r($_POST, true));
+    nerd_log('Admin settings page loaded' . print_r($_POST, true));
     if ( isset( $_POST['clear_cache_all'] ) ) {
         nerd_log('Button "Clear All Caches" pressed.');
         if ( check_admin_referer( 'nerd_cache_clear_action' ) ) {
@@ -185,6 +201,15 @@ function nerd_cache_clear_page() {
         } else {
             nerd_log('Nonce verification failed for "Clear Filesystem Cache". Operation aborted.');
         }
+    } elseif ( isset( $_POST['clear_ea_elementor'] ) ) {
+        nerd_log('Button "Clear Essential Addons Cache" pressed.');
+        if ( check_admin_referer( 'nerd_cache_clear_action' ) ) {
+            nerd_log('Nonce verified for "Clear Essential Addons Cache".');
+            nerd_clear_ea_elementor_cache();
+            echo '<div class="updated notice"><p>Essential Addons cache cleared!</p></div>';
+        } else {
+            nerd_log('Nonce verification failed for "Clear Essential Addons Cache".');
+        }
     }
     ?>
     <div class="wrap">
@@ -195,6 +220,7 @@ function nerd_cache_clear_page() {
             <input type="submit" name="clear_elementor" class="button-secondary" value="Clear Elementor Cache">
             <input type="submit" name="clear_wp_rocket" class="button-secondary" value="Clear WP Rocket Cache">
             <input type="submit" name="clear_filesystem" class="button-secondary" value="Clear Filesystem Cache">
+            <input type="submit" name="clear_ea_elementor" class="button-secondary" value="Clear Essential Addons Cache">
         </form>
         <div style="width:100%;height:200px;border:1px solid #ccc;overflow:auto;">
             <?php
