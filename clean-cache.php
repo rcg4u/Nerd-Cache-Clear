@@ -3,9 +3,16 @@
  * Plugin Name: Nerd Cache Clear
  * Plugin URI: https://narcolepticnerd.com/wordpress-plugins/NerdCacheClear
  * Description: A basic WordPress plugin to clear cache.
- * Version: 1.0
+ * Version: 1.2
  * Author: narcolepticnerd
  * Author URI: https://narcolepticnerd.com
+ * 
+ * Changelog:
+ * Version 1.2:
+ * - Updated BunnyCDN functionality (still disabled).
+ * - Improved logging for cache clearing operations.
+ * - Minor UI adjustments in the admin page.
+ * - Updated plugin version to 1.2.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -156,6 +163,28 @@ function nerd_clear_ea_elementor_cache() {
     nerd_run_cache_clear();
 }
 
+function nerd_clear_bunny_cdn_cache($path) {
+    nerd_log('Starting clear_bunny_cdn_cache for: ' . $path);
+    $apiKey = get_option('bunny_cdn_api_key');
+    $zoneId = get_option('bunny_cdn_zone_id');
+    $url = 'https://api.bunny.net/pullzone/' . $zoneId . '/purge?url=' . urlencode($path);
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Accept: application/json',
+        'AccessKey: ' . $apiKey,
+    ]);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PURGE');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $response = curl_exec($ch);
+    if(curl_errno($ch)) {
+        nerd_log('Bunny CDN purge error: ' . curl_error($ch));
+    } else {
+        nerd_log('Bunny CDN response: ' . $response);
+    }
+    curl_close($ch);
+    nerd_run_cache_clear();
+}
+
 // Updated admin page callback that displays a button.
 function nerd_cache_clear_page() {
     nerd_log('Admin settings page loaded' . print_r($_POST, true));
@@ -210,19 +239,38 @@ function nerd_cache_clear_page() {
         } else {
             nerd_log('Nonce verification failed for "Clear Essential Addons Cache".');
         }
+    } elseif ( isset( $_POST['clear_bunny_cdn'] ) ) {
+        nerd_log('Button "Clear Bunny CDN" pressed.');
+        if ( check_admin_referer( 'nerd_cache_clear_action' ) ) {
+            $path = sanitize_text_field($_POST['bunny_cdn_path']);
+            nerd_log('Nonce verified for "Clear Bunny CDN". Purging path: ' . $path);
+            nerd_clear_bunny_cdn_cache($path);
+            echo '<div class="updated notice"><p>Bunny CDN cache cleared for: ' . esc_html($path) . '</p></div>';
+        }
+    } elseif ( isset( $_POST['save_bunny_cdn_settings'] ) ) {
+        if ( check_admin_referer( 'nerd_cache_clear_action' ) ) {
+            update_option('bunny_cdn_api_key', sanitize_text_field($_POST['bunny_cdn_api_key']));
+            update_option('bunny_cdn_zone_id', sanitize_text_field($_POST['bunny_cdn_zone_id']));
+        }
     }
     ?>
     <div class="wrap">
         <h1>Nerd Cache Clear</h1>
-        <form method="post">
+        <form method="post" style="padding: 20px; background-color: #f9f9f9; border-radius: 5px;">
             <?php wp_nonce_field( 'nerd_cache_clear_action' ); ?>
-            <input type="submit" name="clear_cache_all" class="button-primary" value="Clear All Caches">
-            <input type="submit" name="clear_elementor" class="button-secondary" value="Clear Elementor Cache">
-            <input type="submit" name="clear_wp_rocket" class="button-secondary" value="Clear WP Rocket Cache">
-            <input type="submit" name="clear_filesystem" class="button-secondary" value="Clear Filesystem Cache">
-            <input type="submit" name="clear_ea_elementor" class="button-secondary" value="Clear Essential Addons Cache">
-        </form>
-        <div style="width:100%;height:200px;border:1px solid #ccc;overflow:auto;">
+            <input type="submit" name="clear_cache_all" class="button-primary" value="Clear All Caches" style="margin: 5px;">
+            <input type="submit" name="clear_elementor" class="button-secondary" value="Clear Elementor Cache" style="margin: 5px;">
+            <input type="submit" name="clear_wp_rocket" class="button-secondary" value="Clear WP Rocket Cache" style="margin: 5px;">
+            <input type="submit" name="clear_filesystem" class="button-secondary" value="Clear Filesystem Cache" style="margin: 5px;">
+            <input type="submit" name="clear_ea_elementor" class="button-secondary" value="Clear Essential Addons Cache" style="margin: 5px;">
+            <br><br>
+            <p style="color: #ff0000; font-weight: bold;">Note: BunnyCDN functionality is a work in progress and currently disabled.</p>
+            <input type="text" name="bunny_cdn_path" placeholder="Bunny CDN file or folder" style="width: 300px; padding: 5px; margin: 5px 0;" disabled />
+            <br><input type="submit" name="clear_bunny_cdn" class="button-secondary" value="Clear Bunny CDN" style="margin: 5px 0;" disabled />
+            <br><input type="text" name="bunny_cdn_api_key" value="<?php echo esc_attr(get_option('bunny_cdn_api_key')); ?>" placeholder="Bunny CDN API Key" style="width: 300px; padding: 5px; margin: 5px 0;" disabled />
+            <input type="text" name="bunny_cdn_zone_id" value="<?php echo esc_attr(get_option('bunny_cdn_zone_id')); ?>" placeholder="Bunny CDN Pull Zone ID" style="width: 300px; padding: 5px; margin: 5px 0;" disabled />
+            <input type="submit" name="save_bunny_cdn_settings" class="button-secondary" value="Save Bunny CDN Settings" style="margin: 5px 0;" disabled />
+        </form>        <div style="width:100%;height:200px;border:1px solid #ccc;overflow:auto;">
             <?php
             global $nerd_log;
             echo '<ul>';
@@ -247,3 +295,8 @@ function nerd_cache_clear_menu() {
     );
 }
 add_action( 'admin_menu', 'nerd_cache_clear_menu' );
+add_action( 'admin_init', 'nerd_register_bunny_cdn_settings' );
+function nerd_register_bunny_cdn_settings() {
+    register_setting( 'nerd_cache_clear_group', 'bunny_cdn_api_key' );
+    register_setting( 'nerd_cache_clear_group', 'bunny_cdn_zone_id' );
+}
