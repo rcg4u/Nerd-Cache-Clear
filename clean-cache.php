@@ -2,19 +2,23 @@
 /**
  * Plugin Name: Nerd Cache Clear
  * Plugin URI: https://narcolepticnerd.com/wordpress-plugins/NerdCacheClear
- * Description: A basic WordPress plugin to clear cache.
- * Version: 1.2
+ * Description: A powerful WordPress plugin to clear various types of cache including BunnyCDN.
+ * Version: 1.3
  * Author: narcolepticnerd
  * Author URI: https://narcolepticnerd.com
  * 
  * Changelog:
+ * Version 1.3:
+ * - Enabled BunnyCDN functionality.
+ * - Enhanced BunnyCDN cache clearing with better error handling.
+ * - Added support for purging entire zone with /* path.
+ * 
  * Version 1.2:
  * - Updated BunnyCDN functionality (still disabled).
  * - Improved logging for cache clearing operations.
  * - Minor UI adjustments in the admin page.
  * - Updated plugin version to 1.2.
  */
-
 if ( ! defined( 'ABSPATH' ) ) {
     exit; // Exit if accessed directly.
 }
@@ -167,24 +171,46 @@ function nerd_clear_bunny_cdn_cache($path) {
     nerd_log('Starting clear_bunny_cdn_cache for: ' . $path);
     $apiKey = get_option('bunny_cdn_api_key');
     $zoneId = get_option('bunny_cdn_zone_id');
-    $url = 'https://api.bunny.net/pullzone/' . $zoneId . '/purge?url=' . urlencode($path);
+    
+    if (empty($apiKey) || empty($zoneId)) {
+        nerd_log('BunnyCDN API Key or Zone ID is missing. Please configure BunnyCDN settings.');
+        return false;
+    }
+    
+    // Check if we're purging everything
+    if ($path == '/*' || empty($path)) {
+        // Purge entire zone
+        $url = 'https://api.bunny.net/pullzone/' . $zoneId . '/purgeCache';
+        $method = 'POST';
+    } else {
+        // Purge specific URL
+        $url = 'https://api.bunny.net/pullzone/' . $zoneId . '/purge?url=' . urlencode($path);
+        $method = 'PURGE';
+    }
+    
+    nerd_log('BunnyCDN API request: ' . $url . ' using method: ' . $method);
+    
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Accept: application/json',
         'AccessKey: ' . $apiKey,
     ]);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PURGE');
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    
     if(curl_errno($ch)) {
-        nerd_log('Bunny CDN purge error: ' . curl_error($ch));
+        $error = curl_error($ch);
+        nerd_log('BunnyCDN purge error: ' . $error);
+        curl_close($ch);
+        return false;
     } else {
-        nerd_log('Bunny CDN response: ' . $response);
+        nerd_log('BunnyCDN response (HTTP ' . $httpCode . '): ' . $response);
+        curl_close($ch);
+        return ($httpCode >= 200 && $httpCode < 300);
     }
-    curl_close($ch);
-    nerd_run_cache_clear();
 }
-
 // Updated admin page callback that displays a button.
 function nerd_cache_clear_page() {
     nerd_log('Admin settings page loaded' . print_r($_POST, true));
@@ -264,12 +290,19 @@ function nerd_cache_clear_page() {
             <input type="submit" name="clear_filesystem" class="button-secondary" value="Clear Filesystem Cache" style="margin: 5px;">
             <input type="submit" name="clear_ea_elementor" class="button-secondary" value="Clear Essential Addons Cache" style="margin: 5px;">
             <br><br>
-            <p style="color: #ff0000; font-weight: bold;">Note: BunnyCDN functionality is a work in progress and currently disabled.</p>
-            <input type="text" name="bunny_cdn_path" placeholder="Bunny CDN file or folder" style="width: 300px; padding: 5px; margin: 5px 0;" disabled />
-            <br><input type="submit" name="clear_bunny_cdn" class="button-secondary" value="Clear Bunny CDN" style="margin: 5px 0;" disabled />
-            <br><input type="text" name="bunny_cdn_api_key" value="<?php echo esc_attr(get_option('bunny_cdn_api_key')); ?>" placeholder="Bunny CDN API Key" style="width: 300px; padding: 5px; margin: 5px 0;" disabled />
-            <input type="text" name="bunny_cdn_zone_id" value="<?php echo esc_attr(get_option('bunny_cdn_zone_id')); ?>" placeholder="Bunny CDN Pull Zone ID" style="width: 300px; padding: 5px; margin: 5px 0;" disabled />
-            <input type="submit" name="save_bunny_cdn_settings" class="button-secondary" value="Save Bunny CDN Settings" style="margin: 5px 0;" disabled />
+            <h3>BunnyCDN Cache Clearing</h3>
+            <input type="text" name="bunny_cdn_path" placeholder="Bunny CDN file or folder path (or /* for all)" style="width: 300px; padding: 5px; margin: 5px 0;" />
+            <br><input type="submit" name="clear_bunny_cdn" class="button-secondary" value="Clear Bunny CDN" style="margin: 5px 0;" />
+            <h3>BunnyCDN Settings</h3>
+            <input type="text" name="bunny_cdn_api_key" value="<?php echo esc_attr(get_option('bunny_cdn_api_key')); ?>" placeholder="Bunny CDN API Key" style="width: 300px; padding: 5px; margin: 5px 0;" />
+            <input type="text" name="bunny_cdn_zone_id" value="<?php echo esc_attr(get_option('bunny_cdn_zone_id')); ?>" placeholder="Bunny CDN Pull Zone ID" style="width: 300px; padding: 5px; margin: 5px 0;" />
+            <input type="submit" name="save_bunny_cdn_settings" class="button-secondary" value="Save BunnyCDN Settings" style="margin: 5px 0;" />
+            <input type="submit" name="test_bunny_cdn" class="button-secondary" value="Test BunnyCDN Connection" style="margin: 5px 0;" />
+<?php
+    if (isset($_POST['test_bunny_cdn']) && check_admin_referer('nerd_cache_clear_action')) {
+        echo '<div class="notice notice-info"><p>' . esc_html(nerd_test_bunny_cdn_connection()) . '</p></div>';
+    }
+?>
         </form>        <div style="width:100%;height:200px;border:1px solid #ccc;overflow:auto;">
             <?php
             global $nerd_log;
@@ -279,8 +312,7 @@ function nerd_cache_clear_page() {
             }
             echo '</ul>';
             ?>
-        </div>
-    </div>
+        </div>    </div>
     <?php
 }
 
@@ -299,4 +331,38 @@ add_action( 'admin_init', 'nerd_register_bunny_cdn_settings' );
 function nerd_register_bunny_cdn_settings() {
     register_setting( 'nerd_cache_clear_group', 'bunny_cdn_api_key' );
     register_setting( 'nerd_cache_clear_group', 'bunny_cdn_zone_id' );
+}
+
+function nerd_test_bunny_cdn_connection() {
+    $apiKey = get_option('bunny_cdn_api_key');
+    $zoneId = get_option('bunny_cdn_zone_id');
+    
+    if (empty($apiKey) || empty($zoneId)) {
+        return 'Missing API Key or Zone ID. Please configure BunnyCDN settings.';
+    }
+    
+    $url = 'https://api.bunny.net/pullzone/' . $zoneId;
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Accept: application/json',
+        'AccessKey: ' . $apiKey,
+    ]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    
+    if(curl_errno($ch)) {
+        $error = curl_error($ch);
+        curl_close($ch);
+        return 'Connection error: ' . $error;
+    } else {
+        curl_close($ch);
+        if ($httpCode == 200) {
+            $data = json_decode($response, true);
+            return 'Successfully connected to BunnyCDN. Zone name: ' . 
+                  (isset($data['Name']) ? $data['Name'] : 'Unknown');
+        } else {
+            return 'API returned error code: ' . $httpCode . '. Check your API key and Zone ID.';
+        }
+    }
 }
