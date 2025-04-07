@@ -214,18 +214,11 @@ function nerd_clear_bunny_cdn_cache($path) {
 // Updated admin page callback that displays a button.
 function nerd_cache_clear_page() {
     nerd_log('Admin settings page loaded' . print_r($_POST, true));
-    if ( isset( $_POST['clear_cache_all'] ) ) {
-        nerd_log('Button "Clear All Caches" pressed.');
-        if ( check_admin_referer( 'nerd_cache_clear_action' ) ) {
-            nerd_log('Nonce verified for "Clear All Caches". Clearing all caches: starting.');
-            nerd_clear_elementor_cache();
-            nerd_clear_wp_rocket_cache();
-            nerd_clear_filesystem_cache();
-            nerd_log('Clearing all caches completed.');
-            echo '<div class="updated notice"><p>All caches cleared!</p></div>';
-        } else {
-            nerd_log('Nonce verification failed for "Clear All Caches". Operation aborted.');
-        }
+    if (isset($_POST['clear_cache_all']) && check_admin_referer('nerd_cache_clear_action')) {
+        nerd_log('Nonce verified for "Clear All Caches". Clearing all caches: starting.');
+        nerd_clear_caches_in_order();
+        nerd_log('Clearing all caches completed.');
+        echo '<div class="updated notice"><p>All caches cleared!</p></div>';
     } elseif ( isset( $_POST['clear_elementor'] ) ) {
         nerd_log('Button "Clear Elementor Cache" pressed.');
         if ( check_admin_referer( 'nerd_cache_clear_action' ) ) {
@@ -278,6 +271,8 @@ function nerd_cache_clear_page() {
             update_option('bunny_cdn_api_key', sanitize_text_field($_POST['bunny_cdn_api_key']));
             update_option('bunny_cdn_zone_id', sanitize_text_field($_POST['bunny_cdn_zone_id']));
         }
+    } elseif (isset($_POST['save_cache_order']) && check_admin_referer('nerd_cache_clear_action')) {
+        update_option('cache_clear_order', sanitize_text_field($_POST['cache_clear_order']));
     }
     ?>
     <div class="wrap">
@@ -298,6 +293,12 @@ function nerd_cache_clear_page() {
             <input type="text" name="bunny_cdn_zone_id" value="<?php echo esc_attr(get_option('bunny_cdn_zone_id')); ?>" placeholder="Bunny CDN Pull Zone ID" style="width: 300px; padding: 5px; margin: 5px 0;" />
             <input type="submit" name="save_bunny_cdn_settings" class="button-secondary" value="Save BunnyCDN Settings" style="margin: 5px 0;" />
             <input type="submit" name="test_bunny_cdn" class="button-secondary" value="Test BunnyCDN Connection" style="margin: 5px 0;" />
+            <h3>Cache Clearing Order</h3>
+            <?php
+            $cache_order = get_option('cache_clear_order', 'elementor,ea_elementor,filesystem,wp_rocket,bunny_cdn');
+            ?>
+            <input type="text" name="cache_clear_order" value="<?php echo esc_attr($cache_order); ?>" placeholder="Comma-separated order (e.g., elementor,ea_elementor,filesystem)" style="width: 300px; padding: 5px; margin: 5px 0;" />
+            <input type="submit" name="save_cache_order" class="button-secondary" value="Save Cache Order" style="margin: 5px 0;" />
 <?php
     if (isset($_POST['test_bunny_cdn']) && check_admin_referer('nerd_cache_clear_action')) {
         echo '<div class="notice notice-info"><p>' . esc_html(nerd_test_bunny_cdn_connection()) . '</p></div>';
@@ -363,6 +364,36 @@ function nerd_test_bunny_cdn_connection() {
                   (isset($data['Name']) ? $data['Name'] : 'Unknown');
         } else {
             return 'API returned error code: ' . $httpCode . '. Check your API key and Zone ID.';
+        }
+    }
+}
+
+function nerd_clear_caches_in_order() {
+    // Set the default order
+    $default_order = 'elementor,ea_elementor,filesystem,wp_rocket,bunny_cdn';
+    $order = get_option('cache_clear_order', $default_order);
+    $order = explode(',', $order);
+
+    foreach ($order as $cache_type) {
+        switch (trim($cache_type)) {
+            case 'elementor':
+                nerd_clear_elementor_cache();
+                break;
+            case 'ea_elementor':
+                nerd_clear_ea_elementor_cache();
+                break;
+            case 'filesystem':
+                nerd_clear_filesystem_cache();
+                break;
+            case 'wp_rocket':
+                nerd_clear_wp_rocket_cache();
+                break;
+            case 'bunny_cdn':
+                nerd_clear_bunny_cdn_cache('/*'); // Assuming full purge for demonstration
+                break;
+            default:
+                nerd_log('Unknown cache type: ' . $cache_type);
+                break;
         }
     }
 }
