@@ -294,10 +294,15 @@ function nerd_cache_clear_page() {
             <input type="submit" name="save_bunny_cdn_settings" class="button-secondary" value="Save BunnyCDN Settings" style="margin: 5px 0;" />
             <input type="submit" name="test_bunny_cdn" class="button-secondary" value="Test BunnyCDN Connection" style="margin: 5px 0;" />
             <h3>Cache Clearing Order</h3>
-            <?php
-            $cache_order = get_option('cache_clear_order', 'elementor,ea_elementor,filesystem,wp_rocket,bunny_cdn');
-            ?>
-            <input type="text" name="cache_clear_order" value="<?php echo esc_attr($cache_order); ?>" placeholder="Comma-separated order (e.g., elementor,ea_elementor,filesystem)" style="width: 300px; padding: 5px; margin: 5px 0;" />
+            <ul id="cache-order-list" style="list-style-type: none; padding: 0;">
+                <?php
+                $cache_order = explode(',', get_option('cache_clear_order', 'elementor,ea_elementor,filesystem,wp_rocket,bunny_cdn'));
+                foreach ($cache_order as $cache_type) {
+                    echo '<li class="ui-state-default" style="margin: 5px 0; padding: 5px; border: 1px solid #ccc; cursor: move;">' . esc_html($cache_type) . '</li>';
+                }
+                ?>
+            </ul>
+            <input type="hidden" name="cache_clear_order" id="cache_clear_order" value="<?php echo esc_attr(implode(',', $cache_order)); ?>" />
             <input type="submit" name="save_cache_order" class="button-secondary" value="Save Cache Order" style="margin: 5px 0;" />
 <?php
     if (isset($_POST['test_bunny_cdn']) && check_admin_referer('nerd_cache_clear_action')) {
@@ -396,4 +401,11 @@ function nerd_clear_caches_in_order() {
                 break;
         }
     }
+
 }
+
+function nerd_enqueue_admin_scripts() {
+    wp_enqueue_script('jquery-ui-sortable');
+    wp_enqueue_script('nerd-admin-script', plugin_dir_url(__FILE__) . 'admin.js', array('jquery', 'jquery-ui-sortable'), null, true);
+}
+add_action('admin_enqueue_scripts', 'nerd_enqueue_admin_scripts');
