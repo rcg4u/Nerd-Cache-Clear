@@ -271,8 +271,6 @@ function nerd_cache_clear_page() {
             update_option('bunny_cdn_api_key', sanitize_text_field($_POST['bunny_cdn_api_key']));
             update_option('bunny_cdn_zone_id', sanitize_text_field($_POST['bunny_cdn_zone_id']));
         }
-    } elseif (isset($_POST['save_cache_order']) && check_admin_referer('nerd_cache_clear_action')) {
-        update_option('cache_clear_order', sanitize_text_field($_POST['cache_clear_order']));
     }
     ?>
     <div class="wrap">
@@ -293,17 +291,6 @@ function nerd_cache_clear_page() {
             <input type="text" name="bunny_cdn_zone_id" value="<?php echo esc_attr(get_option('bunny_cdn_zone_id')); ?>" placeholder="Bunny CDN Pull Zone ID" style="width: 300px; padding: 5px; margin: 5px 0;" />
             <input type="submit" name="save_bunny_cdn_settings" class="button-secondary" value="Save BunnyCDN Settings" style="margin: 5px 0;" />
             <input type="submit" name="test_bunny_cdn" class="button-secondary" value="Test BunnyCDN Connection" style="margin: 5px 0;" />
-            <h3>Cache Clearing Order</h3>
-            <ul id="cache-order-list" style="list-style-type: none; padding: 0;">
-                <?php
-                $cache_order = explode(',', get_option('cache_clear_order', 'elementor,ea_elementor,filesystem,wp_rocket,bunny_cdn'));
-                foreach ($cache_order as $cache_type) {
-                    echo '<li class="ui-state-default" style="margin: 5px 0; padding: 5px; border: 1px solid #ccc; cursor: move;">' . esc_html($cache_type) . '</li>';
-                }
-                ?>
-            </ul>
-            <input type="hidden" name="cache_clear_order" id="cache_clear_order" value="<?php echo esc_attr(implode(',', $cache_order)); ?>" />
-            <input type="submit" name="save_cache_order" class="button-secondary" value="Save Cache Order" style="margin: 5px 0;" />
 <?php
     if (isset($_POST['test_bunny_cdn']) && check_admin_referer('nerd_cache_clear_action')) {
         echo '<div class="notice notice-info"><p>' . esc_html(nerd_test_bunny_cdn_connection()) . '</p></div>';
@@ -405,7 +392,32 @@ function nerd_clear_caches_in_order() {
 }
 
 function nerd_enqueue_admin_scripts() {
+    
     wp_enqueue_script('jquery-ui-sortable');
     wp_enqueue_script('nerd-admin-script', plugin_dir_url(__FILE__) . 'admin.js', array('jquery', 'jquery-ui-sortable'), null, true);
 }
 add_action('admin_enqueue_scripts', 'nerd_enqueue_admin_scripts');
+?>
+<script type="text/javascript">
+jQuery(document).ready(function($) {
+    console.log("Initializing sortable list");
+    $("#cache-order-list").sortable({
+        update: function(event, ui) {
+            var order = [];
+            $('#cache-order-list li').each(function() {
+                order.push($(this).data('value'));
+            });
+            $('#cache_clear_order').val(order.join(','));
+            console.log("New order: " + order.join(','));
+        }
+    });
+    $("#cache-order-list").disableSelection();
+    
+    // Debug - check if items exist
+    console.log("List items count: " + $("#cache-order-list li").length);
+    $("#cache-order-list li").each(function() {
+        console.log("Item: " + $(this).text() + ", value: " + $(this).data('value'));
+    });
+});
+</script>
+<?php
