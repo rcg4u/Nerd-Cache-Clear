@@ -5,6 +5,7 @@ Nerd Cache Clear is a powerful WordPress plugin to clear various types of cache 
 ### Features
 
 - Clear Elementor, WP Rocket, Filesystem, Essential Addons, and BunnyCDN caches.
+- Resave WordPress permalinks from the plugin admin page.
 - **New:** Specify the order in which caches are cleared using a drag-and-drop interface.
 
 ### Usage
@@ -13,6 +14,7 @@ Nerd Cache Clear is a powerful WordPress plugin to clear various types of cache 
 2. Use the "Clear All Caches" button to clear all caches in the specified order.
 3. **New:** Reorder the cache clearing sequence by dragging and dropping the cache types in the list. The default order is `elementor,ea_elementor,filesystem,wp_rocket,bunny_cdn`.
 4. Click "Save Cache Order" to save your custom order.
+5. Use "Resave Permalinks" when you need to flush WordPress rewrite rules.
 
 ### Installation
 

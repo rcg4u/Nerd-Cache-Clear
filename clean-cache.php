@@ -63,6 +63,12 @@ function nerd_clear_log_file() {
     return false;
 }
 
+function nerd_resave_permalinks() {
+    nerd_log('Starting nerd_resave_permalinks.');
+    flush_rewrite_rules();
+    nerd_log('Permalink rules flushed successfully.');
+}
+
 // Core cache clearing logic.
 function nerd_run_cache_clear() {
     // Generic cache clear logic (if any).
@@ -266,6 +272,16 @@ function nerd_cache_clear_page() {
             nerd_clear_bunny_cdn_cache($path);
             echo '<div class="updated notice"><p>Bunny CDN cache cleared for: ' . esc_html($path) . '</p></div>';
         }
+    } elseif ( isset( $_POST['resave_permalinks'] ) ) {
+        nerd_log('Button "Resave Permalinks" pressed.');
+        if ( check_admin_referer( 'nerd_cache_clear_action' ) ) {
+            nerd_log('Nonce verified for "Resave Permalinks". Flushing rewrite rules: starting.');
+            nerd_resave_permalinks();
+            nerd_log('Flushing rewrite rules completed.');
+            echo '<div class="updated notice"><p>Permalinks resaved!</p></div>';
+        } else {
+            nerd_log('Nonce verification failed for "Resave Permalinks". Operation aborted.');
+        }
     } elseif ( isset( $_POST['save_bunny_cdn_settings'] ) ) {
         if ( check_admin_referer( 'nerd_cache_clear_action' ) ) {
             update_option('bunny_cdn_api_key', sanitize_text_field($_POST['bunny_cdn_api_key']));
@@ -282,6 +298,7 @@ function nerd_cache_clear_page() {
             <input type="submit" name="clear_wp_rocket" class="button-secondary" value="Clear WP Rocket Cache" style="margin: 5px;">
             <input type="submit" name="clear_filesystem" class="button-secondary" value="Clear Filesystem Cache" style="margin: 5px;">
             <input type="submit" name="clear_ea_elementor" class="button-secondary" value="Clear Essential Addons Cache" style="margin: 5px;">
+            <input type="submit" name="resave_permalinks" class="button-secondary" value="Resave Permalinks" style="margin: 5px;">
             <br><br>
             <h3>BunnyCDN Cache Clearing</h3>
             <input type="text" name="bunny_cdn_path" placeholder="Bunny CDN file or folder path (or /* for all)" style="width: 300px; padding: 5px; margin: 5px 0;" />
