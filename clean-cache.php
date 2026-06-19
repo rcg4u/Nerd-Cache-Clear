@@ -234,6 +234,72 @@ function nerd_clear_redis_cache() {
     nerd_run_cache_clear();
 }
 
+function nerd_clear_jch_optimize_cache() {
+    nerd_log('Starting clear_jch_optimize_cache.');
+    
+    // Check if JCH Optimize is active
+    if ( ! defined('JCH_VERSION') && ! ( function_exists('is_plugin_active') && is_plugin_active('jch-optimize/jch-optimize.php') ) ) {
+        nerd_log('JCH Optimize plugin not active. Skipping JCH cache clear.');
+        return;
+    }
+    
+    nerd_log('JCH Optimize plugin detected.');
+    
+    // JCH Optimize stores cache in these locations
+    $jch_cache_dirs = array(
+        WP_CONTENT_DIR . '/cache/jch-optimize/',
+        WP_PLUGIN_DIR . '/jch-optimize/assets/wp-content/',
+        WP_CONTENT_DIR . '/plugins/jch-optimize/assets/wp-content/'
+    );
+    
+    $deleted_files = 0;
+    
+    foreach ($jch_cache_dirs as $cache_dir) {
+        if (is_dir($cache_dir)) {
+            nerd_log('Found JCH cache directory: ' . $cache_dir);
+            
+            // Delete all files in the cache directory
+            $files = glob($cache_dir . '*');
+            if ($files) {
+                foreach ($files as $file) {
+                    if (is_file($file)) {
+                        if (unlink($file)) {
+                            $deleted_files++;
+                            nerd_log('Deleted JCH cache file: ' . basename($file));
+                        } else {
+                            nerd_log('Failed to delete JCH file: ' . $file);
+                        }
+                    }
+                }
+            }
+            
+            // Also recursively delete subdirectories if they exist
+            $dirs = glob($cache_dir . '*', GLOB_ONLYDIR);
+            if ($dirs) {
+                foreach ($dirs as $dir) {
+                    nerd_delete_directory_contents($dir);
+                    @rmdir($dir);
+                    nerd_log('Deleted JCH cache subdirectory: ' . basename($dir));
+                }
+            }
+        }
+    }
+    
+    // Clear JCH transients
+    if ( function_exists('delete_transient') ) {
+        delete_transient('jch_optimize_ao_exception');
+        delete_transient('jch_optimize_cache');
+    }
+    
+    if ($deleted_files > 0) {
+        nerd_log('JCH Optimize cache cleared. Deleted ' . $deleted_files . ' files.');
+    } else {
+        nerd_log('JCH Optimize cache clear completed. No files found to delete.');
+    }
+    
+    nerd_run_cache_clear();
+}
+
 function nerd_delete_directory_contents($path) {
     // Recursively remove all files and subdirectories.
     $items = glob($path . '*', GLOB_MARK);
@@ -482,12 +548,15 @@ function nerd_test_bunny_cdn_connection() {
 
 function nerd_clear_caches_in_order() {
     // Set the default order
-    $default_order = 'redis,elementor,ea_elementor,filesystem,wp_rocket,bunny_cdn,oceanwp';
+    $default_order = 'redis,jch_optimize,elementor,ea_elementor,filesystem,wp_rocket,bunny_cdn,oceanwp';
     $order = get_option('cache_clear_order', $default_order);
     $order = explode(',', $order);
 
     foreach ($order as $cache_type) {
         switch (trim($cache_type)) {
+            case 'jch_optimize':
+                nerd_clear_jch_optimize_cache();
+                break;
             case 'elementor':
                 nerd_clear_elementor_cache();
                 break;
