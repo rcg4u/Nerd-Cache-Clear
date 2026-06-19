@@ -196,6 +196,44 @@ function nerd_clear_oceanwp_cache() {
     nerd_run_cache_clear();
 }
 
+// Redis Object Cache clearer
+function nerd_clear_redis_cache() {
+    nerd_log('Starting clear_redis_cache.');
+    
+    // Check if object cache is available
+    if (!wp_using_ext_object_cache()) {
+        nerd_log('No external object cache detected. Skipping Redis cache clear.');
+        return;
+    }
+    
+    nerd_log('External object cache detected.');
+    
+    // Try to flush using WordPress core function
+    $flushed = wp_cache_flush();
+    
+    if ($flushed) {
+        nerd_log('Redis Object Cache flushed successfully using wp_cache_flush().');
+    } else {
+        nerd_log('wp_cache_flush() returned false. Cache may not have been flushed.');
+    }
+    
+    // Alternative: Check for specific Redis plugin functions
+    if (function_exists('redis_cache_flush')) {
+        nerd_log('Found redis_cache_flush function. Calling it.');
+        redis_cache_flush();
+        nerd_log('Redis cache flushed via redis_cache_flush().');
+    }
+    
+    // For Object Cache Pro plugin
+    if (function_exists('objectcache_flush')) {
+        nerd_log('Found objectcache_flush function. Calling it.');
+        objectcache_flush();
+        nerd_log('Object Cache Pro flushed via objectcache_flush().');
+    }
+    
+    nerd_run_cache_clear();
+}
+
 function nerd_delete_directory_contents($path) {
     // Recursively remove all files and subdirectories.
     $items = glob($path . '*', GLOB_MARK);
@@ -444,7 +482,7 @@ function nerd_test_bunny_cdn_connection() {
 
 function nerd_clear_caches_in_order() {
     // Set the default order
-    $default_order = 'elementor,ea_elementor,filesystem,oceanwp,wp_rocket,bunny_cdn';
+    $default_order = 'redis,elementor,ea_elementor,filesystem,wp_rocket,bunny_cdn,oceanwp';
     $order = get_option('cache_clear_order', $default_order);
     $order = explode(',', $order);
 
@@ -461,6 +499,9 @@ function nerd_clear_caches_in_order() {
                 break;
             case 'oceanwp':
                 nerd_clear_oceanwp_cache();
+                break;
+            case 'redis':
+                nerd_clear_redis_cache();
                 break;
             case 'wp_rocket':
                 nerd_clear_wp_rocket_cache();
