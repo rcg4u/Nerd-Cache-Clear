@@ -142,6 +142,60 @@ function nerd_clear_filesystem_cache() {
     nerd_run_cache_clear();
 }
 
+// OceanWP cache clearer
+function nerd_clear_oceanwp_cache() {
+    nerd_log('Starting clear_oceanwp_cache.');
+    
+    $upload_dir = wp_upload_dir();
+    $oceanwp_dir = $upload_dir['basedir'] . '/oceanwp/';
+    
+    nerd_log('OceanWP cache directory: ' . $oceanwp_dir);
+    
+    // Check if OceanWP is active (theme or child theme)
+    $theme = wp_get_theme();
+    $is_oceanwp = ($theme->get('Name') === 'OceanWP' || $theme->get('Template') === 'oceanwp');
+    
+    if (!$is_oceanwp) {
+        nerd_log('OceanWP theme not active. Skipping OceanWP cache clear.');
+        return;
+    }
+    
+    nerd_log('OceanWP theme detected.');
+    
+    // Delete custom-style.css and other cached CSS files
+    if (is_dir($oceanwp_dir)) {
+        $files = glob($oceanwp_dir . '*');
+        $deleted = [];
+        
+        if ($files) {
+            foreach ($files as $file) {
+                if (is_file($file)) {
+                    if (unlink($file)) {
+                        nerd_log('Deleted OceanWP cache file: ' . $file);
+                        $deleted[] = basename($file);
+                    } else {
+                        nerd_log('Failed to delete OceanWP file: ' . $file);
+                    }
+                }
+            }
+        }
+        
+        // Also clear transients
+        delete_transient('oceanwp_custom_css');
+        delete_transient('oceanwp_google_fonts');
+        
+        if (!empty($deleted)) {
+            nerd_log('OceanWP cache cleared. Deleted: ' . implode(', ', $deleted));
+        } else {
+            nerd_log('OceanWP cache directory empty or no files deleted.');
+        }
+    } else {
+        nerd_log('OceanWP cache directory not found: ' . $oceanwp_dir);
+    }
+    
+    nerd_run_cache_clear();
+}
+
 function nerd_delete_directory_contents($path) {
     // Recursively remove all files and subdirectories.
     $items = glob($path . '*', GLOB_MARK);
@@ -255,6 +309,16 @@ function nerd_cache_clear_page() {
         } else {
             nerd_log('Nonce verification failed for "Clear Filesystem Cache". Operation aborted.');
         }
+    } elseif ( isset( $_POST['clear_oceanwp'] ) ) {
+        nerd_log('Button "Clear OceanWP Cache" pressed.');
+        if ( check_admin_referer( 'nerd_cache_clear_action' ) ) {
+            nerd_log('Nonce verified for "Clear OceanWP Cache". Clearing OceanWP cache: starting.');
+            nerd_clear_oceanwp_cache();
+            nerd_log('Clearing OceanWP cache completed.');
+            echo '<div class="updated notice"><p>OceanWP cache cleared!</p></div>';
+        } else {
+            nerd_log('Nonce verification failed for "Clear OceanWP Cache". Operation aborted.');
+        }
     } elseif ( isset( $_POST['clear_ea_elementor'] ) ) {
         nerd_log('Button "Clear Essential Addons Cache" pressed.');
         if ( check_admin_referer( 'nerd_cache_clear_action' ) ) {
@@ -297,6 +361,7 @@ function nerd_cache_clear_page() {
             <input type="submit" name="clear_elementor" class="button-secondary" value="Clear Elementor Cache" style="margin: 5px;">
             <input type="submit" name="clear_wp_rocket" class="button-secondary" value="Clear WP Rocket Cache" style="margin: 5px;">
             <input type="submit" name="clear_filesystem" class="button-secondary" value="Clear Filesystem Cache" style="margin: 5px;">
+            <input type="submit" name="clear_oceanwp" class="button-secondary" value="Clear OceanWP Cache" style="margin: 5px;">
             <input type="submit" name="clear_ea_elementor" class="button-secondary" value="Clear Essential Addons Cache" style="margin: 5px;">
             <input type="submit" name="resave_permalinks" class="button-secondary" value="Resave Permalinks" style="margin: 5px;">
             <br><br>
@@ -379,7 +444,7 @@ function nerd_test_bunny_cdn_connection() {
 
 function nerd_clear_caches_in_order() {
     // Set the default order
-    $default_order = 'elementor,ea_elementor,filesystem,wp_rocket,bunny_cdn';
+    $default_order = 'elementor,ea_elementor,filesystem,oceanwp,wp_rocket,bunny_cdn';
     $order = get_option('cache_clear_order', $default_order);
     $order = explode(',', $order);
 
@@ -393,6 +458,9 @@ function nerd_clear_caches_in_order() {
                 break;
             case 'filesystem':
                 nerd_clear_filesystem_cache();
+                break;
+            case 'oceanwp':
+                nerd_clear_oceanwp_cache();
                 break;
             case 'wp_rocket':
                 nerd_clear_wp_rocket_cache();
